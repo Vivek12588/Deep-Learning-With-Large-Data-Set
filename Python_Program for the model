@@ -1,0 +1,147 @@
+# we have created the program on kaggle kernel
+
+import numpy as np #  for linear algebra application 
+import pandas as pd # for data processing 
+
+import os 
+print(os.listdir("../input/(name of your file )"))
+
+os.listdir('/tmp')
+
+!pip install pretrainedmodels # cmd to install pretrained models 
+
+from torchvision.models import *
+# import pretrainedmodels
+
+from fastai import *
+from fastai.vision import *
+from fastai.vision.models import *
+from fastai.vision.learner import model_meta
+import fastai
+
+from utils import *
+import sys
+import torch
+fastai.__version__  # gives the version of the fastai library
+
+torch.__version__
+
+lis = os.listdir('../input/flowers_data/data/train')
+
+sub = pd.read_csv('../input/flowers_data/data/submission.csv')
+
+sub.shape
+
+bs=16
+
+path = "../input/flowers_data/data/train"
+
+df = pd.read_csv('../input/flowers_data/data/train.csv')
+
+df.head()
+
+
+
+# CenterCrop(32)
+## if you want to try other transformation check this link
+## https://docs.fast.ai/vision.transform.html
+tfms = get_transforms(flip_vert=False,max_zoom=1.0,max_warp=0,do_flip=False,xtra_tfms=[cutout()])
+tfms1 = get_transforms(flip_vert=False,max_zoom=1.0,max_warp=0,do_flip=False,xtra_tfms=[cutout()])
+data = (ImageList.from_csv(path, csv_name = '../train.csv', suffix='.jpg')
+        .split_by_rand_pct()              
+        .label_from_df()            
+        .add_test_folder(test_folder = '../test')              
+        .transform(tfms, size=400)
+        .databunch(num_workers=0,bs=16))
+
+data1 = (ImageList.from_csv(path, csv_name = '../train.csv', suffix='.jpg')
+        .split_by_rand_pct()              
+        .label_from_df()            
+        .add_test_folder(test_folder = '../test')              
+        .transform(tfms1, size=400)
+        .databunch(num_workers=0,bs=16))
+
+## to see the images in train with there labels
+data.show_batch(rows=3, figsize=(8,10))
+
+## print the target classes
+print(data.classes)
+
+## load the pretrained imagenet model
+## you can try other models from this link
+## https://docs.fast.ai/vision.models.html
+learn = cnn_learner(data, models.squeezenet1_1, metrics=[error_rate, accuracy], model_dir="/tmp/model/")
+
+
+
+## training with one cycle which used cyclic learning rate and learning rate annhelling
+## first model 
+learn.fit_one_cycle(1)
+path = learn.save('model_In52')
+learn.save("trained_model",return_path=True)
+learn=learn.load("trained_model")
+learn.unfreeze()
+learn.lr_find()
+learn.fit_one_cycle(2, max_lr=slice(1e-6,1e-3))
+
+
+## 2nd model 
+
+learn1 = cnn_learner(data1, models.densenet201, metrics=[error_rate, accuracy], model_dir="/tmp/model/")
+learn1.unfreeze()
+learn1.lr_find()
+learn1.fit_one_cycle(2, max_lr=slice(1e-6,1e-3))
+
+## 3rd model
+
+learn2 = cnn_learner(data1, models.resnet101, metrics=[error_rate, accuracy], model_dir="/tmp/model/")
+## training with one cycle which used cyclic learning rate and learning rate annhelling
+learn2.fit_one_cycle(1)
+learn2.unfreeze()
+learn2.lr_find()
+learn2.fit_one_cycle(2, max_lr=slice(1e-6,1e-3))
+
+## 4th model 
+
+learn3 = cnn_learner(data, models.vgg19_bn, metrics=[error_rate, accuracy], model_dir="/tmp/model/")
+#\# training with one cycle which used cyclic learning rate and learning rate annhelling
+learn3.fit_one_cycle(1)
+learn3.unfreeze()
+learn3.lr_find()
+learn3.fit_one_cycle(2, max_lr=slice(1e-6,1e-3))
+
+## 5th model 
+
+learn4 = cnn_learner(data1, models.resnet152, metrics=[error_rate, accuracy], model_dir="/tmp/model/")
+# training with one cycle which used cyclic learning rate and learning rate annhelling
+learn4.fit_one_cycle(1)
+learn4.unfreeze()
+learn4.lr_find()
+learn4.fit_one_cycle(3, max_lr=slice(1e-6,1e-3))
+
+## creating predictions 
+preds,_ = learn.TTA(ds_type=DatasetType.Test)
+preds1,_ = learn1.TTA(ds_type=DatasetType.Test)
+preds2,_ = learn2.TTA(ds_type=DatasetType.Test)
+preds3,_ = learn3.TTA(ds_type=DatasetType.Test)
+preds4,_ = learn4.TTA(ds_type=DatasetType.Test)
+
+labelled_preds = []
+pred11 =   preds1 + preds3  + preds2+ preds + preds4
+for pred in pred11:
+    labelled_preds.append(int(np.argmax(pred))+1)
+   
+This is the final prediction ##
+
+
+##By using different pretrained modules you can increase the accuracy of the model the accuracy of our model is about 99.09%  
+## you can also try to run the code for differnt values of bs , epoch , etc.
+
+
+
+
+
+
+
+
+
